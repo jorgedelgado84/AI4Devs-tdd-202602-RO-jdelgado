@@ -6,50 +6,63 @@ import { Resume } from '../../domain/models/Resume';
 
 export const addCandidate = async (candidateData: any) => {
     try {
-        validateCandidateData(candidateData); // Validar los datos del candidato
+        validateCandidateData(candidateData);
     } catch (error: any) {
         throw new Error(error);
     }
 
-    const candidate = new Candidate(candidateData); // Crear una instancia del modelo Candidate
+    const candidate = new Candidate(candidateData);
+
+    let savedCandidate: any;
     try {
-        const savedCandidate = await candidate.save(); // Guardar el candidato en la base de datos
-        const candidateId = savedCandidate.id; // Obtener el ID del candidato guardado
-
-        // Guardar la educación del candidato
-        if (candidateData.educations) {
-            for (const education of candidateData.educations) {
-                const educationModel = new Education(education);
-                educationModel.candidateId = candidateId;
-                await educationModel.save();
-                candidate.education.push(educationModel);
-            }
-        }
-
-        // Guardar la experiencia laboral del candidato
-        if (candidateData.workExperiences) {
-            for (const experience of candidateData.workExperiences) {
-                const experienceModel = new WorkExperience(experience);
-                experienceModel.candidateId = candidateId;
-                await experienceModel.save();
-                candidate.workExperience.push(experienceModel);
-            }
-        }
-
-        // Guardar los archivos de CV
-        if (candidateData.cv && Object.keys(candidateData.cv).length > 0) {
-            const resumeModel = new Resume(candidateData.cv);
-            resumeModel.candidateId = candidateId;
-            await resumeModel.save();
-            candidate.resumes.push(resumeModel);
-        }
-        return savedCandidate;
+        savedCandidate = await candidate.save();
     } catch (error: any) {
         if (error.code === 'P2002') {
-            // Unique constraint failed on the fields: (`email`)
             throw new Error('The email already exists in the database');
-        } else {
-            throw error;
+        }
+        throw error;
+    }
+
+    const candidateId = savedCandidate.id;
+
+    if (candidateData.educations) {
+        for (const education of candidateData.educations) {
+            const educationModel = new Education(education);
+            educationModel.candidateId = candidateId;
+            try {
+                await educationModel.save();
+            } catch (error: any) {
+                if (error.code === 'P2002') {
+                    throw new Error('Education record already exists for this candidate');
+                }
+                throw error;
+            }
+            candidate.education.push(educationModel);
         }
     }
+
+    if (candidateData.workExperiences) {
+        for (const experience of candidateData.workExperiences) {
+            const experienceModel = new WorkExperience(experience);
+            experienceModel.candidateId = candidateId;
+            try {
+                await experienceModel.save();
+            } catch (error: any) {
+                if (error.code === 'P2002') {
+                    throw new Error('Work experience record already exists for this candidate');
+                }
+                throw error;
+            }
+            candidate.workExperience.push(experienceModel);
+        }
+    }
+
+    if (candidateData.cv && Object.keys(candidateData.cv).length > 0) {
+        const resumeModel = new Resume(candidateData.cv);
+        resumeModel.candidateId = candidateId;
+        await resumeModel.save();
+        candidate.resumes.push(resumeModel);
+    }
+
+    return savedCandidate;
 };

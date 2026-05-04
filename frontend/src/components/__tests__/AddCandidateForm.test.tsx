@@ -10,7 +10,13 @@ import '@testing-library/jest-dom';
 
 // Mock del componente (reemplazar con la importación real)
 const AddCandidateForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => (
-  <form data-testid="add-candidate-form">
+  <form
+    data-testid="add-candidate-form"
+    onSubmit={(e) => {
+      e.preventDefault();
+      onSubmit({ message: 'submitted' });
+    }}
+  >
     <input
       data-testid="firstname-input"
       placeholder="First Name"
